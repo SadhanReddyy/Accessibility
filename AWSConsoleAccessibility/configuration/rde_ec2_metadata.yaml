@@ -1,0 +1,11 @@
+# This file controls the metadata served via RDE.
+# You can customize values the metatdata endpoint returns.
+# For more details, see: https://w.amazon.com/index.php/RDE/How_do_I#Overwrite_the_values_returned_by_the_EC2_metadata_service_from_the_Personal_Stack_.28i.e._change_the_AWS_account_region.29
+latest:
+  dynamic:
+    instance-identity:
+      document: |-
+        {
+          "availabilityZone": "us-west-2a",
+          "region": "us-west-2"
+        }

@@ -1,0 +1,23 @@
+{
+  "SchemaVersion": "1.0",
+  "SchemaType": "HydraJavaTestNG",
+  "HydraParameters": {
+  },
+  "HandlerParameters": {
+    "parameters": {
+      "domain": "beta",
+      "realm": "us-west-2",
+      "endpointOverride": "http://my.service.endpoint.com"
+    },
+    "tests": [
+      {
+        "name": "AWSConsoleAccessibilityTests",
+        "packages": [
+          {
+            "name": "com.amazon.awsconsoleaccessibility.*"
+          }
+        ]
+      }
+    ]
+  }
+}

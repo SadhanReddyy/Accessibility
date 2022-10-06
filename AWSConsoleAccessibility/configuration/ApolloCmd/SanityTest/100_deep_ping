@@ -1,0 +1,74 @@
+#!/apollo/bin/env perl5.8 -w
+# -*- perl -*-
+#
+# Copyright (c) 2009 Amazon.com Inc. All Rights Reserved.
+# AMAZON.COM CONFIDENTIAL
+#
+# Description: Sanity test calling deep_ping
+#
+
+use strict;
+
+use lib '/apollo/lib';
+
+use Amazon::Apollo::EnvironmentInfo qw(get_op_config_value_single);
+
+my $port = 8080;
+
+$ENV{'PERL_LWP_SSL_VERIFY_HOSTNAME'} = 0;
+my $url  = "http://localhost:$port/deep_ping";
+my $cmd = "$ENV{'APOLLO_CANONICAL_ENVIRONMENT_ROOT'}/bin/GET -t 10 $url";
+
+my $maxWaitTime   = 500; # seconds.
+my $sleepInterval = 10;  # seconds.
+
+my $timeWaited = 0;
+
+# Poll until it's up.
+while ($timeWaited < $maxWaitTime) {
+    my $startTime = time();
+    my $response = `$cmd`;
+    print "Validating $cmd\n";
+
+    if ( $response !~ /^healthy$/ ) {
+        print STDERR "$cmd failed, retrying in $sleepInterval seconds\n";
+        print STDERR "Response was: $response\n";
+        print STDERR "Waiting for service to initialize and respond\n";
+        sleep($sleepInterval);
+        $timeWaited += time() - $startTime;
+    } else {
+        last;
+    }
+}
+
+if ( $timeWaited >= $maxWaitTime ) {
+    print "Ping check did not get a response after $timeWaited seconds.\n";
+    exit 1;
+}
+print "Ping check succeeded at " . localtime() . "\n";
+exit 0;
+
+
+__END__
+
+=head1 NAME
+
+100_deep_ping - Sanity test checking the /deep_ping URL of the service
+
+=head1 DESCRIPTION
+
+This sanity test requests the /deep_ping URL of the service and expects a
+response of "healthy".
+
+=head1 SEE ALSO
+
+https://w.amazon.com/?Apollo/Glossary/SanityTest_Step
+
+=head1 COPYRIGHT
+
+(C) 2012 Amazon.com. All rights reserved. No warranty, express
+or implied, accompanies use of this product. If you experience
+problems, please press the "Help" key on your keyboard and a
+technical support specialist will be by shortly to assist you.
+
+=cut

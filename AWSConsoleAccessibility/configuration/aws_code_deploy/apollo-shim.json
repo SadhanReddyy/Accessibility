@@ -1,0 +1,23 @@
+{
+   "environment" : {
+     "environmentAlias" : "AWSConsoleAccessibility",
+     "runAsUser" : "ecs-user"
+   },
+   "defaultStack" : "AWSConsoleAccessibility.Automatic",
+   "AWSConsoleAccessibility.Automatic" : {
+     "OCF" : {
+       "PubSub" : {
+         "domain" : "REPLACE_DOMAIN",
+         "realm"  : "REPLACE_REGION"
+       },
+       "HttpServer": {
+         "http.numberOfThreads": 1,
+         "httpRegularPort": 8080,
+         "httpSecurePort": 8443
+       }
+     },
+     "environmentStage" : {
+         "name" : "REPLACE_DOMAIN_APOLLO"
+     }
+   }
+}

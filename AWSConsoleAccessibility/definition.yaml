@@ -1,0 +1,105 @@
+version: 2016-11-18
+stack:
+  name: AWSConsoleAccessibilityStack
+  ec2MetadataURI: configuration/rde_ec2_metadata.yaml
+  # Please see the following guide on how to configure credentials: https://builderhub.corp.amazon.com/docs/rde/user-guide/howto.html#use-aws-credentials-on-macos
+  # You can use RDE placeholders https://builderhub.corp.amazon.com/docs/rde/user-guide/placeholders.html to customize account settings
+  # and the rest of the definition file.
+
+  # devAccount:
+  #   type: Isengard
+  #   roleArn: arn:aws:iam::797524731773:role/REPLACE_WITH_YOUR_ROLE_NAME
+
+  applications:
+    AWSConsoleAccessibility:
+
+      type: container
+      environment:
+          variables:
+              # AWS_CONTAINER_CREDENTIALS_RELATIVE_URI: "/role/REPLACE_WITH_YOUR_ROLE_NAM"
+              ECS_CONTAINER_METADATA_URI: "http://169.254.170.2/v3"
+              AWS_REGION: "us-west-2"
+              IS_ONEPOD: "false"
+      versionSet: AWSConsoleAccessibility/development
+      codeURI: ../../
+      packages:
+        AWSConsoleAccessibility:
+          buildTarget: release
+
+          isApplicationTarget: true
+
+        AWSConsoleAccessibilityImageBuild:
+          buildTarget: release
+          isBatsParameter: true
+      mountPoints:
+
+      - sourceURI: mounts/apollo-shim-static-replacements
+        destinationURI: /opt/apollo-shim-static-replacements
+
+      networkMappings:
+      - name: my.service.endpoint.com
+        internalPort: 8080
+
+        externalPort: 8080
+        exposedPort: 8080
+
+        protocol: http
+
+
+
+steps:
+  build:
+    type: build
+  container-build:
+    type: build
+    arguments:
+      container: true
+  deploy:
+    type: deploy
+  container-smoke-test:
+    type: custom
+    arguments:
+      command: sleep 1 && docker ps -a --format "{{.Status}}" -f name=AWSConsoleAccessibility | grep -qvi exited
+  ec2md-smoke-test: # sends a simple curl command to check that the EC2 Metadata endpoint is available inside the container application
+    type: stackExec
+    arguments:
+      applications:
+        - AWSConsoleAccessibility
+      command: |
+        TOKEN=$(curl --silent --fail --retry 3 -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+        [ ! -z "$TOKEN" ] && curl --silent --retry 3 -H "X-aws-ec2-metadata-token: $TOKEN" -v http://169.254.169.254/latest/meta-data/
+  ecs-metadata-smoke-test:
+    # sends a simple curl command to check that the ECS Metadata endpoint is available inside the container application
+    type: stackExec
+    arguments:
+        applications:
+        - AWSConsoleAccessibility
+        command: curl --silent --fail http://169.254.170.2/v3
+  exposed-port-smoke-test:
+    type: custom
+    arguments:
+      command: curl localhost:8080/deep_ping
+  internal-port-smoke-test: # sends a simple curl command to check that Coral stack is listening on port 8080 inside the container
+    type: stackExec
+    arguments:
+      applications:
+        - AWSConsoleAccessibility
+      command: curl --silent --fail localhost:8080/deep_ping
+  internal-dns-smoke-test: # sends a simple curl command to check that rde correctly exposed the coral server inside the Personal Stack network
+    type: stackExec
+    arguments:
+      applications:
+        - AWSConsoleAccessibility
+      command: curl --silent --fail my.service.endpoint.com:8080/ping
+workflows:
+  default:
+  - build
+  - deploy
+  validate:
+  - container-smoke-test
+  - ec2md-smoke-test
+  - ecs-metadata-smoke-test
+  - exposed-port-smoke-test
+  - internal-port-smoke-test
+  - internal-dns-smoke-test
+

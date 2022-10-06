@@ -1,0 +1,186 @@
+<?xml version="1.0"?>
+<project xmlns:ht="happytrails" name="AWSConsoleAccessibility-1.0" basedir="." default="release" xmlns:coral="antlib:com.amazon.coral">
+
+    <!-- Import happy trails to start with. -->
+    <import file="${happytrails.root}/happytrails.xml" optional="false"/>
+
+    <!-- Project specific properties -->
+    <property name="configuration.dir" location="${basedir}/configuration" />
+
+    <property name="coral-src.dir" location="${output.dir}/private/src" />
+    <property name="coral-tst.dir" location="${output.dir}/private/tst" />
+    <property name="coral-model-package" value="AWSConsoleAccessibilityModel" />
+
+    <!-- Setting ht.include.cfg to true will tell happier trails to copy everything
+    from $configuration.dir to your build directory.
+    Concretely - configuration/bin/file.sh will be copied to build/bin/file.sh
+    No additional targets need to be defined for this to work. -->
+    <property name="ht.include.cfg" value="true" />
+    <!-- To make sure we preserve file permissions -->
+    <ht:import file="copy-with-permissions.xml"/>
+    <!--
+        Delete this line and remove checkstyle-config.xml to pick up HappierTrails
+        more strict checkstyle ruleset.
+    -->
+    <property name="checkstyle.configuration.file" location="checkstyle-config.xml"/>
+    <!-- End properties -->
+
+
+
+    <!-- Import other things after props, HappierTrails and Coral helpers -->
+    <ht:import file="coral-generator.xml"   optional="false"/>
+    <ht:import file="happier-trails.xml" optional="false"/>
+    <ht:import file="generate-wrapper.xml" optional="false"/>
+    <!-- Bring in the classpath validator -->
+    <ht:import file="validate-classpath.xml" optional="false"/>
+
+
+    <!-- Generate the Apollo script to start your service
+         Note: When modifying properties/env/jvmargs/etc here, remember to also
+         update the server target as well
+    -->
+    <target name="apollo-script" extensionOf="ht-post-build">
+        <generate-wrapper target="${output.dir}/bin/run-service.sh" classname="com.amazon.awsconsoleaccessibility.AWSConsoleAccessibility">
+
+            <jvmarg value="-server"/>
+            <jvmarg value="-XX:+UseG1GC"/>
+            <jvmarg value="-XX:MaxRAMPercentage=90.0"/>
+            <jvmarg value="-XX:MaxGCPauseMillis=100"/>
+            <jvmarg value="-XX:+PerfDisableSharedMem"/>
+            <jvmarg value="-Dsun.net.inetaddr.negative.ttl=1"/>
+
+            <!-- Kill on OOM (logscan for PMAdmin.log will trigger an alarm) -->
+            <jvmarg value="-XX:+ExitOnOutOfMemoryError"/>
+
+            <env key="CORAL_CONFIG_PATH" value="${ENVROOT}/coral-config" escape="false"/>
+
+            <sysproperty key="javax.net.ssl.trustStore" value="${ENVROOT}/certs/InternalAndExternalTrustStore.jks" escape="false"/>
+            <sysproperty key="javax.net.ssl.trustStorePassword" value="amazon"/>
+
+            <sysproperty key="log4j.configurationFile" value="file:${ENVROOT}/log-configuration/log4j2-container.xml" escape="false"/>
+
+            <sysproperty key="java.util.logging.manager" value="org.apache.logging.log4j.jul.LogManager"/>
+            <sysproperty key="Log4jContextSelector" value="org.apache.logging.log4j.core.async.AsyncLoggerContextSelector"/>
+
+            <sysproperty key="root" value="${ENVROOT}" escape="false"/>
+
+            <arg line="--root=${ENVROOT}"/>
+            <arg line="--domain=${DOMAIN}"/>
+            <arg line="--realm=${REALM}"/>
+        </generate-wrapper>
+    </target>
+
+    <!--
+        Generate the service types, model index, and abstract activities. You can also generate service explorer here
+        if it is needed in your test/development  environments. Please use Coral Diver instead of Coral Service Explorer in
+        Production environments as it is not secure to use service explorer in Production services -   
+    -->
+    <target name="generate">
+        <mkdir dir="${coral-src.dir}" />
+        <!-- Generate the source -->
+        <coral:generate dir="${coral-src.dir}" mode="types,index,server" stalecheck="true">
+            <package name="${coral-model-package}"/>
+        </coral:generate>
+        <!-- Compile the coral source -->
+        <ht:compile srcdir="${coral-src.dir}" destdir="${generated.classes.dir}" />
+    </target>
+
+    <!-- Generate activity stubs into src directory -->
+    <target name="generate-stubs">
+        <!-- Generate the source -->
+        <coral:generate dir="${sources.dir}" mode="stub" stalecheck="false">
+            <package name="${coral-model-package}"/>
+        </coral:generate>
+    </target>
+
+    <!-- Generate the Java client for unit tests -->
+    <target name="test-generate" depends="compile">
+        <mkdir dir="${coral-tst.dir}" />
+        <!-- Generate the source -->
+        <coral:generate dir="${coral-tst.dir}" mode="javaclient" stalecheck="true">
+            <package name="${coral-model-package}"/>
+        </coral:generate>
+        <!-- Compile the coral source -->
+        <ht:compile srcdir="${coral-tst.dir}" destdir="${testclasses.dir}">
+          <extra-classpath>
+            <path path="${bp:testbuild.classpath}" />
+          </extra-classpath>
+        </ht:compile>
+    </target>
+
+    <!-- Copy anything in the static-content directory to the server static area -->
+    <target name="copy-static-content">
+        <mkdir dir="${output.dir}/private/static-content" />
+        <mkdir dir="${output.dir}/static-content" />
+        <copy todir="${output.dir}/private/static-content">
+            <fileset dir="${basedir}/static-content" erroronmissingdir="false" />
+        </copy>
+        <copy todir="${output.dir}/static-content">
+            <fileset dir="${basedir}/static-content" erroronmissingdir="false" />
+        </copy>
+    </target>
+
+    <!-- Copy files necessary for bb-server to work. -->
+    <target name="setup-server">
+        <copy todir="${output.dir}/private">
+            <fileset dir="${bp:run.configfarm.brazil-config}">
+                <include name="brazil-config/**/*"/>
+            </fileset>
+            <fileset dir="${bp:run.configfarm.certs}">
+                <include name="certs/**/*"/>
+            </fileset>
+        </copy>
+        <mkdir dir="${output.dir}/private/var/tmp" />
+    </target>
+
+    <!-- Launch the coral server
+         Note: When modifying properties/env/jvmargs/etc here, remember to also
+         update the apollo-script target as well
+    -->
+    <target name="server" depends="build, setup-server">
+        <java classname="com.amazon.awsconsoleaccessibility.AWSConsoleAccessibility" classpath="${bp:run.classpath}" fork="true">
+            <env key="IS_ONEPOD" value="false"/>
+            <env key="CORAL_CONFIG_PATH" value="${bp:run.coralconfig}"/>
+            <env key="LD_LIBRARY_PATH"  value="${bp:run.lib}"/>
+            <jvmarg value="-Xmx256M"/>
+            <jvmarg value="-Djava.net.preferIPv4Stack=true"/>
+            <jvmarg value="-Dsun.net.inetaddr.ttl=60"/>
+            <jvmarg value="-Dsun.net.inetaddr.negative.ttl=1"/>
+            <jvmarg line="-XX:+UseG1GC"/>
+            <jvmarg line="-XX:MaxGCPauseMillis=100"/>
+
+            <!-- Uncomment this line to allow remote debugging of your `bb server`
+                 See https://w.amazon.com/index.php/JavaRemoteDebug for more information.
+                 <jvmarg value="-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=localhost:5050"/>
+            -->
+            <jvmarg value="-Droot=${output.dir}/private"/>
+            <arg value="--root=${output.dir}/private"/>
+            <arg value="--domain=test"/>
+            <arg value="--realm=us-west-2"/>
+
+            <sysproperty key="java.util.logging.manager" value="org.apache.logging.log4j.jul.LogManager" />
+            <sysproperty key="Log4jContextSelector" value="org.apache.logging.log4j.core.async.AsyncLoggerContextSelector" />
+
+            <sysproperty key="log4j.configurationFile" value="${output.dir}/log-configuration/log4j2-local.xml"/>
+
+
+            <sysproperty key="java.io.tmpdir" value="${output.dir}/private/var/tmp" />
+        </java>
+    </target>
+
+    <!-- This taget enables classpath validation. This is a best practice that should not be disabled.
+    This target helps ensure that there are not conflicting class definitions that get passed to your JVM on start.
+    There have been quite a few COEs about this - so we enable it by default.
+    https://w.amazon.com/bin/view/BrazilBuildSystem/JavaClassConflictDetector/
+    https://w.amazon.com/index.php/AWS/Mobile/IoT/Internal/Developer/ValidateClasspath
+    -->
+    <target name="validate-classpath">
+        <ht:validateClasspath classpath="${bp:run.classpath}" failOnConflicts="true" />
+    </target>
+
+    <target name="compile" depends="generate,standard-compile" />
+    <target name="test-compile" depends="test-generate,standard-test-compile" />
+    <target name="build" depends="standard-build,relative-classpath-file,copy-static-content,setup-server" />
+    <target name="release" depends="standard-release,validate-classpath" />
+
+</project>

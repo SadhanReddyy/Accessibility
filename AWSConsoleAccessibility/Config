@@ -1,0 +1,122 @@
+# -*-perl-*-
+
+package.AWSConsoleAccessibility = {
+    interfaces = (1.0);
+
+    deploy = {
+        generic = true;
+    };
+
+    build-environment = {
+        chroot = basic;
+        network-access = blocked;
+    };
+
+    build-system = happytrails;
+    build-tools = {
+        1.0 = {
+            Cloud9JavaWrapperGenerator = 1.1;
+            CoralGenerator = 1.2;
+            HappierTrails = 3.5;
+            JDK11 = 1.0;
+            AWSConsoleAccessibilityModel = 1.0;
+        };
+    };
+
+    dependencies = {
+        1.0 = {
+            ApolloShimSetup = 7.0;
+            ApolloShimOpConfigHelpers = 2.1;
+            AmazonAppConfigJava = 2.0;
+
+            Bobcat = 3.0;
+
+            CoralGuice = 1.1_4.2;
+            CoralMetricsQuerylogReporter = 1.1;
+            CloudWatchCoralMetricsReporter = 2.3_WITH_VENDED_METRICS;
+            CoralOrchestrator = 1.1;
+            CoralService = 1.1;
+
+            GoogleGuava = 30.x;
+            GuiceAppConfig = 1.1;
+            # This supports the different protocols declared in CoralModule.java
+            CoralRpcSupport = 1.1;
+        };
+    };
+
+    test-dependencies = {
+        1.0 = {
+            CoralJavaClientDependencies = 1.1;
+            JUnit5 = 5.x;
+            JUnit-4-12-migration = 5.x;
+            AWSConsoleAccessibilityJavaClient = 1.0;
+            CoralClientBuilder = 1.1;
+        };
+    };
+
+    runtime-dependencies = {
+        1.0 = {
+            AmazonCACerts = 1.0;
+            AmazonFileAppenderJava = 2.14.1;
+
+            Jcl-over-log4j2 = 2.x; # Coral uses jakarta commons logging
+            Jul-over-log4j2 = 2.x; # Guava will occasionally log to java.util.log
+            Log4j-1_2-api = 2.14.1; # Many libraries depend on log4j 1.2.
+            Log4j-slf4j = 2.x; # Use Log4j 2.x as our Slf4j logging implementation.
+            log4j = 2.14.1;
+
+            JDK11 = 1.0;
+        };
+    };
+
+    resolves-conflict-dependencies = {
+        1.0 = {
+            AmazonApolloEnvironmentInfoJava = 1.2;
+            AmazonAppConfigJava = 2.0;
+            AmazonFileAppenderJava = 2.14.1;
+
+            AWSJavaClientRuntime = 1.12.x;
+            CoralMetricsReporter = 1.1; # CloudWatchCoralMetricsReporter-2.1_WITH_VENDED_METRICS
+            GoogleGuava = 30.x;
+            GoogleGuice = 4.2;
+            junit = 4.12;
+            log4j = 2.14.1;
+            Log4j-1_2-api = 2.14.1;
+            Log4j-core = 2.14.1;
+            MinimalProcessManager = 3.0;
+            ProcessManager = 3.0;
+            ProcessManagerCommands = 3.0;
+            JakartaCommons-codec = 1.x;
+            Jackson-databind = 2.12.x;
+            Jackson-core = 2.12.x;
+            Jackson-annotations = 2.12.x;
+            ApolloShimSetup = 7.0;
+
+            JMESPathJava = 1.12.x;
+            Maven-com-google-guava_guava = 30.x;
+        };
+    };
+
+    remove-dependencies = {
+        1.0 = {
+            # We remove the public AWS CloudWatchJavaClient since we use the
+            # AWSCloudWatchInternalJavaClient.
+            AWSCloudWatchJavaClient = 1.12.x;
+            JakartaCommons-logging-api = 1.1;
+
+            # In docker, we don't use process manager
+            # Try hard to actually remove it - and it's friends.
+            MinimalProcessManager = 3.0;            
+            ProcessManager = 3.0;
+            ProcessManagerCommands = 3.0;
+            ForceRestartProcessManagerCmds = 1.0;
+
+        };
+    };
+
+    targets = {
+        AWSConsoleAccessibility-1.0 = {
+            type = javalibrary;
+        };
+    };
+};
